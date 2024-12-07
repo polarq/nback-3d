@@ -38,7 +38,7 @@
 <body>
     <div id="game-container"></div>
     <div id="controls">
-        <button onclick="generateNewPosition()">New Position</button>
+        <button onclick="toggleAutoPlay()">Start/Stop</button>
         <button onclick="checkAnswer()">Match?</button>
     </div>
 
@@ -47,14 +47,16 @@
     <script>
         let scene, camera, renderer, grid, currentCube;
         let positionHistory = [];
+        let autoPlayInterval = null;
         const nBack = 1;
         const gridSize = 2;
         const spacing = 1;
+        let isAutoPlaying = false;
 
         function init() {
             // Scene setup
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x1a1a1a);  // Dark background
+            scene.background = new THREE.Color(0x1a1a1a);
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -75,16 +77,16 @@
             createGrid();
             animate();
 
-            // Handle window resize
             window.addEventListener('resize', onWindowResize, false);
         }
 
         function createGrid() {
-            // Create grid group
             grid = new THREE.Group();
 
-            // Create reference axes
+            // Create reference axes at the front-bottom-left corner
             const axesHelper = new THREE.AxesHelper(gridSize * spacing);
+            // Move axes to the corner of the grid
+            axesHelper.position.set(-spacing, -spacing, -spacing);
             grid.add(axesHelper);
 
             // Create wireframe cubes
@@ -95,7 +97,7 @@
                         const edges = new THREE.EdgesGeometry(geometry);
                         const line = new THREE.LineSegments(
                             edges,
-                            new THREE.LineBasicMaterial({ color: 0x4444ff })  // Blue color for better visibility
+                            new THREE.LineBasicMaterial({ color: 0x4444ff })
                         );
                         line.position.set(
                             (x - gridSize/2 + 0.5) * spacing,
@@ -125,8 +127,6 @@
             const geometry = new THREE.BoxGeometry(spacing * 0.8, spacing * 0.8, spacing * 0.8);
             const material = new THREE.MeshPhongMaterial({
                 color: 0x00ff00,
-                transparent: true,
-                opacity: 0.7,
                 emissive: 0x00ff00,
                 emissiveIntensity: 0.2
             });
@@ -142,6 +142,30 @@
             
             if (positionHistory.length > nBack + 1) {
                 positionHistory.shift();
+            }
+
+            // Schedule cube removal after 1 second
+            setTimeout(() => {
+                if (currentCube) {
+                    scene.remove(currentCube);
+                    currentCube = null;
+                }
+            }, 1000);
+        }
+
+        function toggleAutoPlay() {
+            if (isAutoPlaying) {
+                // Stop autoplay
+                if (autoPlayInterval) {
+                    clearInterval(autoPlayInterval);
+                    autoPlayInterval = null;
+                }
+                isAutoPlaying = false;
+            } else {
+                // Start autoplay
+                generateNewPosition(); // Show first cube immediately
+                autoPlayInterval = setInterval(generateNewPosition, 3000);
+                isAutoPlaying = true;
             }
         }
 
