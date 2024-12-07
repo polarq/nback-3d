@@ -33,7 +33,10 @@
             background: #4CAF50;
             color: white;
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: background-color 0.3s ease;
+        }
+        #matchButton {
+            background-color: #4CAF50;
         }
         #nback-display {
             position: fixed;
@@ -62,12 +65,12 @@
     <script>
         // Configuration parameters
         const CONFIG = {
-            rotationSpeed: 0.01,        // Grid rotation speed (radians per frame)
-            cubeDisplayTime: 1000,      // How long each cube shows (milliseconds)
-            intervalTime: 3000,         // Time between cubes (milliseconds)
-            feedbackTime: 500,          // How long feedback shows (milliseconds)
-            cubeColor: 0x7fb3d5,        // Soft blue color for cubes
-            nBack: 1                    // Current n-back level
+            rotationSpeed: 0.01,
+            cubeDisplayTime: 1000,
+            intervalTime: 3000,
+            feedbackTime: 500,
+            cubeColor: 0x7fb3d5,
+            nBack: 1
         };
 
         let scene, camera, renderer, grid, currentCube;
@@ -101,13 +104,14 @@
             window.addEventListener('resize', onWindowResize, false);
         }
 
-        function showFeedback(isMatch, isCorrect) {
+        function showFeedback(isCorrect) {
             const matchButton = document.getElementById('matchButton');
-            const originalColor = matchButton.style.backgroundColor;
+            const originalColor = '#4CAF50';  // Store original color
             
-            // Green if correct, red if incorrect
+            // Set button color based on correctness
             matchButton.style.backgroundColor = isCorrect ? '#4CAF50' : '#f44336';
             
+            // Reset color after delay
             setTimeout(() => {
                 matchButton.style.backgroundColor = originalColor;
             }, CONFIG.feedbackTime);
@@ -120,25 +124,85 @@
             axesHelper.position.set(-spacing, -spacing, -spacing);
             grid.add(axesHelper);
 
-            for (let x = 0; x < gridSize; x++) {
-                for (let y = 0; y < gridSize; y++) {
-                    for (let z = 0; z < gridSize; z++) {
-                        const geometry = new THREE.BoxGeometry(spacing * 0.9, spacing * 0.9, spacing * 0.9);
-                        const edges = new THREE.EdgesGeometry(geometry);
-                        const line = new THREE.LineSegments(
-                            edges,
-                            new THREE.LineBasicMaterial({ color: 0x4444ff })
-                        );
-                        line.position.set(
-                            (x - gridSize/2 + 0.5) * spacing,
-                            (y - gridSize/2 + 0.5) * spacing,
-                            (z - gridSize/2 + 0.5) * spacing
-                        );
-                        grid.add(line);
-                    }
+            // Create unified wireframe instead of individual cubes
+            const lines = new THREE.Group();
+
+            // Create vertical lines
+            for (let x = 0; x <= gridSize; x++) {
+                for (let z = 0; z <= gridSize; z++) {
+                    const geometry = new THREE.BufferGeometry();
+                    const points = [
+                        new THREE.Vector3(
+                            (x - gridSize/2) * spacing, 
+                            -gridSize/2 * spacing, 
+                            (z - gridSize/2) * spacing
+                        ),
+                        new THREE.Vector3(
+                            (x - gridSize/2) * spacing, 
+                            gridSize/2 * spacing, 
+                            (z - gridSize/2) * spacing
+                        )
+                    ];
+                    geometry.setFromPoints(points);
+                    const line = new THREE.Line(
+                        geometry,
+                        new THREE.LineBasicMaterial({ color: 0x4444ff })
+                    );
+                    lines.add(line);
                 }
             }
 
+            // Create horizontal lines (X axis)
+            for (let y = 0; y <= gridSize; y++) {
+                for (let z = 0; z <= gridSize; z++) {
+                    const geometry = new THREE.BufferGeometry();
+                    const points = [
+                        new THREE.Vector3(
+                            -gridSize/2 * spacing,
+                            (y - gridSize/2) * spacing,
+                            (z - gridSize/2) * spacing
+                        ),
+                        new THREE.Vector3(
+                            gridSize/2 * spacing,
+                            (y - gridSize/2) * spacing,
+                            (z - gridSize/2) * spacing
+                        )
+                    ];
+                    geometry.setFromPoints(points);
+                    const line = new THREE.Line(
+                        geometry,
+                        new THREE.LineBasicMaterial({ color: 0x4444ff })
+                    );
+                    lines.add(line);
+                }
+            }
+
+            // Create depth lines (Z axis)
+            for (let x = 0; x <= gridSize; x++) {
+                for (let y = 0; y <= gridSize; y++) {
+                    const geometry = new THREE.BufferGeometry();
+                    const points = [
+                        new THREE.Vector3(
+                            (x - gridSize/2) * spacing,
+                            (y - gridSize/2) * spacing,
+                            -gridSize/2 * spacing
+                        ),
+                        new THREE.Vector3(
+                            (x - gridSize/2) * spacing,
+                            (y - gridSize/2) * spacing,
+                            gridSize/2 * spacing
+                        )
+                    ];
+                    geometry.setFromPoints(points);
+                    const line = new THREE.Line(
+                        geometry,
+                        new THREE.LineBasicMaterial({ color: 0x4444ff })
+                    );
+                    lines.add(line);
+                }
+            }
+
+            grid.add(lines);
             scene.add(grid);
         }
 
@@ -196,7 +260,7 @@
 
         function checkAnswer() {
             if (positionHistory.length <= CONFIG.nBack) {
-                showFeedback(false, false); // Show error feedback
+                showFeedback(false);
                 return;
             }
             
@@ -209,7 +273,7 @@
                 current.z === previous.z
             );
             
-            showFeedback(isMatch, true); // Show correct feedback
+            showFeedback(isMatch);
         }
 
         function animate() {
