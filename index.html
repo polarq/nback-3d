@@ -8,6 +8,7 @@
         body { 
             margin: 0; 
             background-color: #1a1a1a;
+            font-family: Arial, sans-serif;
         }
         canvas { 
             display: block; 
@@ -32,23 +33,46 @@
             background: #4CAF50;
             color: white;
             cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #nback-display {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            color: white;
+            font-size: 18px;
+            z-index: 1000;
         }
     </style>
 </head>
 <body>
     <div id="game-container"></div>
+    <div id="nback-display">N = 1</div>
     <div id="controls">
         <button onclick="toggleAutoPlay()">Start/Stop</button>
-        <button onclick="checkAnswer()">Match?</button>
+        <button id="matchButton" onclick="checkAnswer()">Match?</button>
     </div>
 
     <!-- Load Three.js from CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.159.0/three.min.js"></script>
     <script>
+        // Configuration parameters
+        const CONFIG = {
+            rotationSpeed: 0.01,        // Grid rotation speed (radians per frame)
+            cubeDisplayTime: 1000,      // How long each cube shows (milliseconds)
+            intervalTime: 3000,         // Time between cubes (milliseconds)
+            feedbackTime: 500,          // How long feedback shows (milliseconds)
+            cubeColor: 0x7fb3d5,        // Soft blue color for cubes
+            nBack: 1                    // Current n-back level
+        };
+
         let scene, camera, renderer, grid, currentCube;
         let positionHistory = [];
         let autoPlayInterval = null;
-        const nBack = 1;
         const gridSize = 2;
         const spacing = 1;
         let isAutoPlaying = false;
@@ -77,15 +101,25 @@
             window.addEventListener('resize', onWindowResize, false);
         }
 
+        function showFeedback(isMatch, isCorrect) {
+            const matchButton = document.getElementById('matchButton');
+            const originalColor = matchButton.style.backgroundColor;
+            
+            // Green if correct, red if incorrect
+            matchButton.style.backgroundColor = isCorrect ? '#4CAF50' : '#f44336';
+            
+            setTimeout(() => {
+                matchButton.style.backgroundColor = originalColor;
+            }, CONFIG.feedbackTime);
+        }
+
         function createGrid() {
             grid = new THREE.Group();
 
-            // Create reference axes at the front-bottom-left corner
             const axesHelper = new THREE.AxesHelper(gridSize * spacing);
             axesHelper.position.set(-spacing, -spacing, -spacing);
             grid.add(axesHelper);
 
-            // Create wireframe cubes
             for (let x = 0; x < gridSize; x++) {
                 for (let y = 0; y < gridSize; y++) {
                     for (let z = 0; z < gridSize; z++) {
@@ -109,22 +143,19 @@
         }
 
         function generateNewPosition() {
-            // Remove previous highlight
             if (currentCube) {
-                grid.remove(currentCube);  // Remove from grid instead of scene
+                grid.remove(currentCube);
                 currentCube = null;
             }
 
-            // Generate random position
             const x = Math.floor(Math.random() * gridSize);
             const y = Math.floor(Math.random() * gridSize);
             const z = Math.floor(Math.random() * gridSize);
 
-            // Create highlight cube
             const geometry = new THREE.BoxGeometry(spacing * 0.8, spacing * 0.8, spacing * 0.8);
             const material = new THREE.MeshPhongMaterial({
-                color: 0x00ff00,
-                emissive: 0x00ff00,
+                color: CONFIG.cubeColor,
+                emissive: CONFIG.cubeColor,
                 emissiveIntensity: 0.2
             });
             currentCube = new THREE.Mesh(geometry, material);
@@ -134,46 +165,43 @@
                 (z - gridSize/2 + 0.5) * spacing
             );
 
-            grid.add(currentCube);  // Add to grid instead of scene
+            grid.add(currentCube);
             positionHistory.push({x, y, z});
             
-            if (positionHistory.length > nBack + 1) {
+            if (positionHistory.length > CONFIG.nBack + 1) {
                 positionHistory.shift();
             }
 
-            // Schedule cube removal after 1 second
             setTimeout(() => {
                 if (currentCube) {
-                    grid.remove(currentCube);  // Remove from grid instead of scene
+                    grid.remove(currentCube);
                     currentCube = null;
                 }
-            }, 1000);
+            }, CONFIG.cubeDisplayTime);
         }
 
         function toggleAutoPlay() {
             if (isAutoPlaying) {
-                // Stop autoplay
                 if (autoPlayInterval) {
                     clearInterval(autoPlayInterval);
                     autoPlayInterval = null;
                 }
                 isAutoPlaying = false;
             } else {
-                // Start autoplay
-                generateNewPosition(); // Show first cube immediately
-                autoPlayInterval = setInterval(generateNewPosition, 3000);
+                generateNewPosition();
+                autoPlayInterval = setInterval(generateNewPosition, CONFIG.intervalTime);
                 isAutoPlaying = true;
             }
         }
 
         function checkAnswer() {
-            if (positionHistory.length <= nBack) {
-                alert("Wait for more positions!");
+            if (positionHistory.length <= CONFIG.nBack) {
+                showFeedback(false, false); // Show error feedback
                 return;
             }
             
             const current = positionHistory[positionHistory.length - 1];
-            const previous = positionHistory[positionHistory.length - 1 - nBack];
+            const previous = positionHistory[positionHistory.length - 1 - CONFIG.nBack];
             
             const isMatch = (
                 current.x === previous.x &&
@@ -181,15 +209,14 @@
                 current.z === previous.z
             );
             
-            alert(isMatch ? "Correct! It's a match!" : "Not a match!");
+            showFeedback(isMatch, true); // Show correct feedback
         }
 
         function animate() {
             requestAnimationFrame(animate);
             
-            // Rotate grid slowly
             if (grid) {
-                grid.rotation.y += 0.01;
+                grid.rotation.y += CONFIG.rotationSpeed;
             }
             
             renderer.render(scene, camera);
@@ -201,7 +228,6 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // Start the app when the page loads
         window.addEventListener('load', init);
     </script>
 </body>
