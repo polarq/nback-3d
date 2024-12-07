@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D N-Back Training</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: none;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+    <script async src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <div id="game-container"></div>
+    <div id="controls">
+        <button onclick="generateNewPosition()">New Position</button>
+        <button onclick="checkAnswer()">Match?</button>
+    </div>
+
+    <script>
+        let scene, camera, renderer, grid, currentCube;
+        let positionHistory = [];
+        const nBack = 1;
+        const gridSize = 2;
+        const spacing = 1;
+
+        function init() {
+            // Scene setup
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('game-container').appendChild(renderer.domElement);
+
+            // Camera position
+            camera.position.z = 5;
+            camera.position.y = 2;
+            camera.lookAt(0, 0, 0);
+
+            // Add lights
+            const light = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(light);
+
+            createGrid();
+            animate();
+
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function createGrid() {
+            // Create grid group
+            grid = new THREE.Group();
+
+            // Create reference axes
+            const axesHelper = new THREE.AxesHelper(gridSize * spacing);
+            grid.add(axesHelper);
+
+            // Create wireframe cubes
+            for (let x = 0; x < gridSize; x++) {
+                for (let y = 0; y < gridSize; y++) {
+                    for (let z = 0; z < gridSize; z++) {
+                        const geometry = new THREE.BoxGeometry(spacing * 0.9, spacing * 0.9, spacing * 0.9);
+                        const edges = new THREE.EdgesGeometry(geometry);
+                        const line = new THREE.LineSegments(
+                            edges,
+                            new THREE.LineBasicMaterial({ color: 0xffffff })
+                        );
+                        line.position.set(
+                            (x - gridSize/2 + 0.5) * spacing,
+                            (y - gridSize/2 + 0.5) * spacing,
+                            (z - gridSize/2 + 0.5) * spacing
+                        );
+                        grid.add(line);
+                    }
+                }
+            }
+
+            scene.add(grid);
+        }
+
+        function generateNewPosition() {
+            // Remove previous highlight
+            if (currentCube) {
+                scene.remove(currentCube);
+            }
+
+            // Generate random position
+            const x = Math.floor(Math.random() * gridSize);
+            const y = Math.floor(Math.random() * gridSize);
+            const z = Math.floor(Math.random() * gridSize);
+
+            // Create highlight cube
+            const geometry = new THREE.BoxGeometry(spacing * 0.8, spacing * 0.8, spacing * 0.8);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x00ff00,
+                transparent: true,
+                opacity: 0.5
+            });
+            currentCube = new THREE.Mesh(geometry, material);
+            currentCube.position.set(
+                (x - gridSize/2 + 0.5) * spacing,
+                (y - gridSize/2 + 0.5) * spacing,
+                (z - gridSize/2 + 0.5) * spacing
+            );
+
+            scene.add(currentCube);
+            positionHistory.push({x, y, z});
+            
+            if (positionHistory.length > nBack + 1) {
+                positionHistory.shift();
+            }
+        }
+
+        function checkAnswer() {
+            if (positionHistory.length <= nBack) {
+                alert("Wait for more positions!");
+                return;
+            }
+            
+            const current = positionHistory[positionHistory.length - 1];
+            const previous = positionHistory[positionHistory.length - 1 - nBack];
+            
+            const isMatch = (
+                current.x === previous.x &&
+                current.y === previous.y &&
+                current.z === previous.z
+            );
+            
+            alert(isMatch ? "Correct! It's a match!" : "Not a match!");
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Rotate grid slowly
+            if (grid) {
+                grid.rotation.y += 0.01;
+            }
+            
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Start the app
+        init();
+    </script>
+</body>
+</html>
