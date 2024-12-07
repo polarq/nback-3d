@@ -54,7 +54,6 @@
         let isAutoPlaying = false;
 
         function init() {
-            // Scene setup
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x1a1a1a);
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -62,12 +61,10 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.getElementById('game-container').appendChild(renderer.domElement);
 
-            // Camera position
             camera.position.z = 5;
             camera.position.y = 2;
             camera.lookAt(0, 0, 0);
 
-            // Add lights
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
             scene.add(ambientLight);
             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
@@ -85,7 +82,6 @@
 
             // Create reference axes at the front-bottom-left corner
             const axesHelper = new THREE.AxesHelper(gridSize * spacing);
-            // Move axes to the corner of the grid
             axesHelper.position.set(-spacing, -spacing, -spacing);
             grid.add(axesHelper);
 
@@ -115,7 +111,8 @@
         function generateNewPosition() {
             // Remove previous highlight
             if (currentCube) {
-                scene.remove(currentCube);
+                grid.remove(currentCube);  // Remove from grid instead of scene
+                currentCube = null;
             }
 
             // Generate random position
@@ -137,7 +134,7 @@
                 (z - gridSize/2 + 0.5) * spacing
             );
 
-            scene.add(currentCube);
+            grid.add(currentCube);  // Add to grid instead of scene
             positionHistory.push({x, y, z});
             
             if (positionHistory.length > nBack + 1) {
@@ -147,7 +144,7 @@
             // Schedule cube removal after 1 second
             setTimeout(() => {
                 if (currentCube) {
-                    scene.remove(currentCube);
+                    grid.remove(currentCube);  // Remove from grid instead of scene
                     currentCube = null;
                 }
             }, 1000);
