@@ -5,7 +5,60 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D N-Back Training</title>
     <style>
-        /* Previous styles remain the same */
+        body { 
+            margin: 0; 
+            background-color: #1a1a1a;
+            font-family: Arial, sans-serif;
+        }
+        canvas { 
+            display: block; 
+            touch-action: none;
+        }
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 10px;
+            z-index: 1000;
+        }
+        #matchButton {
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: none;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        #nback-display {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            color: white;
+            font-size: 18px;
+            z-index: 1000;
+        }
+        #error-display {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            font-size: 16px;
+            z-index: 1001;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -18,7 +71,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.159.0/three.min.js"></script>
     <script>
-        // Check WebGL support
         function isWebGLAvailable() {
             try {
                 const canvas = document.createElement('canvas');
@@ -52,9 +104,232 @@
             errorDisplay.style.display = 'block';
         }
 
+        function createGrid() {
+            grid = new THREE.Group();
+
+            // Create colored axes slightly outside the grid
+            const axesHelper = new THREE.Group();
+            
+            // X axis (red)
+            const xGeometry = new THREE.BufferGeometry();
+            xGeometry.setFromPoints([
+                new THREE.Vector3(-CONFIG.axesOffset, -CONFIG.axesOffset, -CONFIG.axesOffset),
+                new THREE.Vector3(0, -CONFIG.axesOffset, -CONFIG.axesOffset)
+            ]);
+            const xLine = new THREE.Line(
+                xGeometry,
+                new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: CONFIG.lineWidth + 1 })
+            );
+            axesHelper.add(xLine);
+
+            // Y axis (green)
+            const yGeometry = new THREE.BufferGeometry();
+            yGeometry.setFromPoints([
+                new THREE.Vector3(-CONFIG.axesOffset, -CONFIG.axesOffset, -CONFIG.axesOffset),
+                new THREE.Vector3(-CONFIG.axesOffset, 0, -CONFIG.axesOffset)
+            ]);
+            const yLine = new THREE.Line(
+                yGeometry,
+                new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: CONFIG.lineWidth + 1 })
+            );
+            axesHelper.add(yLine);
+
+            // Z axis (blue)
+            const zGeometry = new THREE.BufferGeometry();
+            zGeometry.setFromPoints([
+                new THREE.Vector3(-CONFIG.axesOffset, -CONFIG.axesOffset, -CONFIG.axesOffset),
+                new THREE.Vector3(-CONFIG.axesOffset, -CONFIG.axesOffset, 0)
+            ]);
+            const zLine = new THREE.Line(
+                zGeometry,
+                new THREE.LineBasicMaterial({ color: 0x0000ff, linewidth: CONFIG.lineWidth + 1 })
+            );
+            axesHelper.add(zLine);
+
+            grid.add(axesHelper);
+
+            // Create unified wireframe instead of individual cubes
+            const lines = new THREE.Group();
+
+            // Create vertical lines
+            for (let x = 0; x <= gridSize; x++) {
+                for (let z = 0; z <= gridSize; z++) {
+                    const geometry = new THREE.BufferGeometry();
+                    const points = [
+                        new THREE.Vector3(
+                            (x - gridSize/2) * spacing, 
+                            -gridSize/2 * spacing, 
+                            (z - gridSize/2) * spacing
+                        ),
+                        new THREE.Vector3(
+                            (x - gridSize/2) * spacing, 
+                            gridSize/2 * spacing, 
+                            (z - gridSize/2) * spacing
+                        )
+                    ];
+                    geometry.setFromPoints(points);
+                    const line = new THREE.Line(
+                        geometry,
+                        new THREE.LineBasicMaterial({ 
+                            color: 0x4444ff,
+                            linewidth: CONFIG.lineWidth
+                        })
+                    );
+                    lines.add(line);
+                }
+            }
+
+            // Create horizontal lines (X axis)
+            for (let y = 0; y <= gridSize; y++) {
+                for (let z = 0; z <= gridSize; z++) {
+                    const geometry = new THREE.BufferGeometry();
+                    const points = [
+                        new THREE.Vector3(
+                            -gridSize/2 * spacing,
+                            (y - gridSize/2) * spacing,
+                            (z - gridSize/2) * spacing
+                        ),
+                        new THREE.Vector3(
+                            gridSize/2 * spacing,
+                            (y - gridSize/2) * spacing,
+                            (z - gridSize/2) * spacing
+                        )
+                    ];
+                    geometry.setFromPoints(points);
+                    const line = new THREE.Line(
+                        geometry,
+                        new THREE.LineBasicMaterial({ 
+                            color: 0x4444ff,
+                            linewidth: CONFIG.lineWidth
+                        })
+                    );
+                    lines.add(line);
+                }
+            }
+
+            // Create depth lines (Z axis)
+            for (let x = 0; x <= gridSize; x++) {
+                for (let y = 0; y <= gridSize; y++) {
+                    const geometry = new THREE.BufferGeometry();
+                    const points = [
+                        new THREE.Vector3(
+                            (x - gridSize/2) * spacing,
+                            (y - gridSize/2) * spacing,
+                            -gridSize/2 * spacing
+                        ),
+                        new THREE.Vector3(
+                            (x - gridSize/2) * spacing,
+                            (y - gridSize/2) * spacing,
+                            gridSize/2 * spacing
+                        )
+                    ];
+                    geometry.setFromPoints(points);
+                    const line = new THREE.Line(
+                        geometry,
+                        new THREE.LineBasicMaterial({ 
+                            color: 0x4444ff,
+                            linewidth: CONFIG.lineWidth
+                        })
+                    );
+                    lines.add(line);
+                }
+            }
+
+            grid.add(lines);
+            scene.add(grid);
+        }
+
+        function generateNewPosition() {
+            if (currentCube) {
+                grid.remove(currentCube);
+                currentCube = null;
+            }
+
+            const x = Math.floor(Math.random() * gridSize);
+            const y = Math.floor(Math.random() * gridSize);
+            const z = Math.floor(Math.random() * gridSize);
+
+            const geometry = new THREE.BoxGeometry(spacing * 0.8, spacing * 0.8, spacing * 0.8);
+            const material = new THREE.MeshPhongMaterial({
+                color: CONFIG.cubeColor,
+                emissive: CONFIG.cubeColor,
+                emissiveIntensity: 0.2
+            });
+            currentCube = new THREE.Mesh(geometry, material);
+            currentCube.position.set(
+                (x - gridSize/2 + 0.5) * spacing,
+                (y - gridSize/2 + 0.5) * spacing,
+                (z - gridSize/2 + 0.5) * spacing
+            );
+
+            grid.add(currentCube);
+            positionHistory.push({x, y, z});
+            
+            if (positionHistory.length > CONFIG.nBack + 1) {
+                positionHistory.shift();
+            }
+
+            setTimeout(() => {
+                if (currentCube) {
+                    grid.remove(currentCube);
+                    currentCube = null;
+                }
+            }, CONFIG.cubeDisplayTime);
+        }
+
+        function showFeedback(isCorrect) {
+            const matchButton = document.getElementById('matchButton');
+            const originalColor = '#4CAF50';
+            matchButton.style.backgroundColor = isCorrect ? '#4CAF50' : '#f44336';
+            setTimeout(() => {
+                matchButton.style.backgroundColor = originalColor;
+            }, CONFIG.feedbackTime);
+        }
+
+        function checkAnswer() {
+            if (positionHistory.length <= CONFIG.nBack) {
+                showFeedback(false);
+                return;
+            }
+            
+            const current = positionHistory[positionHistory.length - 1];
+            const previous = positionHistory[positionHistory.length - 1 - CONFIG.nBack];
+            
+            const isMatch = (
+                current.x === previous.x &&
+                current.y === previous.y &&
+                current.z === previous.z
+            );
+            
+            showFeedback(isMatch);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate(time) {
+            try {
+                requestAnimationFrame(animate);
+                
+                const delta = time - lastTime;
+                lastTime = time;
+                
+                if (grid) {
+                    grid.rotation.y += CONFIG.rotationSpeed * (delta / 16.67);
+                }
+                
+                renderer.render(scene, camera);
+            } catch (error) {
+                showError('Animation error: ' + error.message);
+                console.error('Animation error:', error);
+            }
+        }
+
         function init() {
             try {
-                // Check WebGL support first
                 if (!isWebGLAvailable()) {
                     throw new Error('WebGL is not supported in your browser');
                 }
@@ -106,29 +381,6 @@
             }
         }
 
-        // Rest of the functions (createGrid, generateNewPosition, etc.) remain exactly the same...
-
-        function animate(time) {
-            try {
-                requestAnimationFrame(animate);
-                
-                const delta = time - lastTime;
-                lastTime = time;
-                
-                if (grid) {
-                    grid.rotation.y += CONFIG.rotationSpeed * (delta / 16.67);
-                }
-                
-                renderer.render(scene, camera);
-            } catch (error) {
-                showError('Animation error: ' + error.message);
-                console.error('Animation error:', error);
-            }
-        }
-
-        // Rest of the code remains the same...
-
-        // Initialize only once when the page is loaded
         window.addEventListener('load', init);
     </script>
 </body>
