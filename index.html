@@ -9,10 +9,16 @@
             margin: 0; 
             background-color: #1a1a1a;
             font-family: Arial, sans-serif;
+            overflow: hidden;  /* Prevent scrolling */
         }
         canvas { 
             display: block; 
-            touch-action: none;
+            width: 100vw;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1;
         }
         #controls {
             position: fixed;
@@ -22,7 +28,7 @@
             background: rgba(0, 0, 0, 0.7);
             padding: 10px;
             border-radius: 10px;
-            z-index: 1000;
+            z-index: 2;
         }
         #matchButton {
             padding: 10px 20px;
@@ -44,43 +50,19 @@
             border-radius: 10px;
             color: white;
             font-size: 18px;
-            z-index: 1000;
-        }
-        #error-display {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 0, 0, 0.7);
-            padding: 20px;
-            border-radius: 10px;
-            color: white;
-            font-size: 16px;
-            z-index: 1001;
-            display: none;
+            z-index: 2;
         }
     </style>
 </head>
 <body>
-    <div id="game-container"></div>
+    <canvas id="gameCanvas"></canvas>
     <div id="nback-display">N = 1</div>
     <div id="controls">
         <button id="matchButton" onclick="checkAnswer()">Match?</button>
     </div>
-    <div id="error-display"></div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.159.0/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        function isWebGLAvailable() {
-            try {
-                const canvas = document.createElement('canvas');
-                return !!(window.WebGLRenderingContext && 
-                    (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
-            } catch(e) {
-                return false;
-            }
-        }
-
         const CONFIG = {
             rotationSpeed: 0.01,
             cubeDisplayTime: 1000,
@@ -98,16 +80,10 @@
         const gridSize = 2;
         const spacing = 1;
 
-        function showError(message) {
-            const errorDisplay = document.getElementById('error-display');
-            errorDisplay.textContent = message;
-            errorDisplay.style.display = 'block';
-        }
-
         function createGrid() {
             grid = new THREE.Group();
 
-            // Create colored axes slightly outside the grid
+            // Create colored axes
             const axesHelper = new THREE.Group();
             
             // X axis (red)
@@ -148,10 +124,10 @@
 
             grid.add(axesHelper);
 
-            // Create unified wireframe instead of individual cubes
+            // Create grid lines
             const lines = new THREE.Group();
 
-            // Create vertical lines
+            // Vertical lines
             for (let x = 0; x <= gridSize; x++) {
                 for (let z = 0; z <= gridSize; z++) {
                     const geometry = new THREE.BufferGeometry();
@@ -179,7 +155,7 @@
                 }
             }
 
-            // Create horizontal lines (X axis)
+            // Horizontal lines
             for (let y = 0; y <= gridSize; y++) {
                 for (let z = 0; z <= gridSize; z++) {
                     const geometry = new THREE.BufferGeometry();
@@ -207,7 +183,7 @@
                 }
             }
 
-            // Create depth lines (Z axis)
+            // Depth lines
             for (let x = 0; x <= gridSize; x++) {
                 for (let y = 0; y <= gridSize; y++) {
                     const geometry = new THREE.BufferGeometry();
@@ -311,76 +287,63 @@
         }
 
         function animate(time) {
-            try {
-                requestAnimationFrame(animate);
-                
-                const delta = time - lastTime;
-                lastTime = time;
-                
-                if (grid) {
-                    grid.rotation.y += CONFIG.rotationSpeed * (delta / 16.67);
-                }
-                
-                renderer.render(scene, camera);
-            } catch (error) {
-                showError('Animation error: ' + error.message);
-                console.error('Animation error:', error);
+            requestAnimationFrame(animate);
+            
+            const delta = time - lastTime;
+            lastTime = time;
+            
+            if (grid) {
+                grid.rotation.y += CONFIG.rotationSpeed * (delta / 16.67);
             }
+            
+            renderer.render(scene, camera);
         }
 
         function init() {
-            try {
-                if (!isWebGLAvailable()) {
-                    throw new Error('WebGL is not supported in your browser');
-                }
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a1a);
 
-                scene = new THREE.Scene();
-                scene.background = new THREE.Color(0x1a1a1a);
-                
-                camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-                camera.position.set(0, 2, 5);
-                camera.lookAt(0, 0, 0);
+            // Setup camera
+            camera = new THREE.PerspectiveCamera(
+                75,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.set(0, 2, 5);
+            camera.lookAt(0, 0, 0);
 
-                try {
-                    renderer = new THREE.WebGLRenderer({ 
-                        antialias: true,
-                        alpha: true,
-                        powerPreference: "high-performance"
-                    });
-                } catch (e) {
-                    throw new Error('Failed to create WebGL renderer: ' + e.message);
-                }
+            // Setup renderer
+            renderer = new THREE.WebGLRenderer({
+                canvas: document.getElementById('gameCanvas'),
+                antialias: true
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                renderer.setPixelRatio(window.devicePixelRatio);
-                
-                const container = document.getElementById('game-container');
-                container.innerHTML = '';
-                container.appendChild(renderer.domElement);
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
 
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-                scene.add(ambientLight);
-                
-                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-                directionalLight.position.set(5, 5, 5);
-                scene.add(directionalLight);
+            // Create the grid and start animation
+            createGrid();
+            lastTime = performance.now();
+            animate();
 
-                createGrid();
-                
-                lastTime = performance.now();
-                animate();
+            // Start game loop
+            generateNewPosition();
+            setInterval(generateNewPosition, CONFIG.intervalTime);
 
-                generateNewPosition();
-                setInterval(generateNewPosition, CONFIG.intervalTime);
-
-                window.addEventListener('resize', onWindowResize, false);
-
-            } catch (error) {
-                showError('Initialization error: ' + error.message);
-                console.error('Initialization error:', error);
-            }
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize, false);
         }
 
+        // Start everything when window loads
         window.addEventListener('load', init);
     </script>
 </body>
