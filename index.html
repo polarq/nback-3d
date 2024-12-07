@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D N-Back Training</title>
     <style>
-        body { margin: 0; }
-        canvas { display: block; }
+        body { 
+            margin: 0; 
+            background-color: #1a1a1a;
+        }
+        canvas { 
+            display: block; 
+        }
         #controls {
             position: fixed;
             bottom: 20px;
@@ -17,6 +22,7 @@
             border-radius: 10px;
             display: flex;
             gap: 10px;
+            z-index: 1000;
         }
         button {
             padding: 10px 20px;
@@ -28,7 +34,6 @@
             cursor: pointer;
         }
     </style>
-    <script async src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
     <div id="game-container"></div>
@@ -37,6 +42,8 @@
         <button onclick="checkAnswer()">Match?</button>
     </div>
 
+    <!-- Load Three.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.159.0/three.min.js"></script>
     <script>
         let scene, camera, renderer, grid, currentCube;
         let positionHistory = [];
@@ -47,6 +54,7 @@
         function init() {
             // Scene setup
             scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a1a);  // Dark background
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -58,8 +66,11 @@
             camera.lookAt(0, 0, 0);
 
             // Add lights
-            const light = new THREE.AmbientLight(0xffffff, 0.7);
-            scene.add(light);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
 
             createGrid();
             animate();
@@ -84,7 +95,7 @@
                         const edges = new THREE.EdgesGeometry(geometry);
                         const line = new THREE.LineSegments(
                             edges,
-                            new THREE.LineBasicMaterial({ color: 0xffffff })
+                            new THREE.LineBasicMaterial({ color: 0x4444ff })  // Blue color for better visibility
                         );
                         line.position.set(
                             (x - gridSize/2 + 0.5) * spacing,
@@ -112,10 +123,12 @@
 
             // Create highlight cube
             const geometry = new THREE.BoxGeometry(spacing * 0.8, spacing * 0.8, spacing * 0.8);
-            const material = new THREE.MeshBasicMaterial({
+            const material = new THREE.MeshPhongMaterial({
                 color: 0x00ff00,
                 transparent: true,
-                opacity: 0.5
+                opacity: 0.7,
+                emissive: 0x00ff00,
+                emissiveIntensity: 0.2
             });
             currentCube = new THREE.Mesh(geometry, material);
             currentCube.position.set(
@@ -167,8 +180,8 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // Start the app
-        init();
+        // Start the app when the page loads
+        window.addEventListener('load', init);
     </script>
 </body>
 </html>
